@@ -88,3 +88,6 @@ ehthumbs_vista.db
 *.key
 *.cert
 *.crt
+
+.vercel
+.env*
