@@ -22,6 +22,7 @@ export default function ReviewMode({
   const [deviceMode, setDeviceMode] = useState("desktop"); // 'desktop' | 'tablet' | 'mobile'
   const [iframeKey, setIframeKey] = useState(0);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [useProxy, setUseProxy] = useState(false);
   const [currentNote, setCurrentNote] = useState("");
 
   const iframeRef = useRef(null);
@@ -135,6 +136,41 @@ export default function ReviewMode({
     if (!currentItem) return;
     onUpdateUrl(currentItem.id, { note: currentNote });
     addToast(t.reviewMode.noteSavedToast);
+  };
+
+  const handleOpenPopupStudio = () => {
+    if (!currentItem?.url) return;
+    let width = 1200;
+    let height = 800;
+
+    if (deviceMode === "mobile") {
+      width = 412;
+      height = 892;
+    } else if (deviceMode === "tablet") {
+      width = 768;
+      height = 1024;
+    }
+
+    const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+    const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+
+    const popup = window.open(
+      currentItem.url,
+      "WebRevLiveStudioPreview",
+      `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=yes`
+    );
+    if (popup) {
+      addToast(t.reviewMode.popupStudioToast);
+    }
+  };
+
+  const handleToggleProxy = () => {
+    setUseProxy((prev) => {
+      const next = !prev;
+      addToast(next ? t.reviewMode.proxyActivatedToast : t.reviewMode.directActivatedToast);
+      setIframeKey((k) => k + 1);
+      return next;
+    });
   };
 
   const totalUrls = urls.length;
@@ -303,6 +339,8 @@ export default function ReviewMode({
               alignItems: "center",
               justifyContent: "space-between",
               fontSize: "0.8rem",
+              flexWrap: "wrap",
+              gap: "8px",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--text-tertiary)" }}>
@@ -313,9 +351,82 @@ export default function ReviewMode({
               <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
                 {currentItem.url}
               </span>
+              {useProxy && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "2px 8px",
+                    borderRadius: "999px",
+                    background: "rgba(16, 185, 129, 0.15)",
+                    color: "#10b981",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                  }}
+                >
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }} />
+                  {t.reviewMode.proxyModeActive}
+                </span>
+              )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              {/* Bypass Proxy Toggle Button */}
+              <button
+                type="button"
+                onClick={handleToggleProxy}
+                title={useProxy ? t.reviewMode.backToDirect : t.reviewMode.tryProxyBypass}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  background: useProxy ? "rgba(16, 185, 129, 0.15)" : "var(--bg-tertiary)",
+                  color: useProxy ? "#10b981" : "var(--text-secondary)",
+                  border: useProxy ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid var(--border-color)",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <span>{useProxy ? t.reviewMode.proxyModeActive : t.reviewMode.tryProxyBypass}</span>
+              </button>
+
+              {/* Pop-up Studio Button */}
+              <button
+                type="button"
+                onClick={handleOpenPopupStudio}
+                title={`${t.reviewMode.popupStudioDesc} (${deviceMode.toUpperCase()})`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  background: "var(--bg-tertiary)",
+                  color: "var(--text-secondary)",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  border: "1px solid var(--border-color)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                <span>{t.reviewMode.popupStudio}</span>
+              </button>
+
               {/* Device Mode Switcher */}
               <div
                 style={{
@@ -421,9 +532,13 @@ export default function ReviewMode({
               }}
             >
               <iframe
-                key={iframeKey}
+                key={`${iframeKey}-${useProxy ? "proxy" : "direct"}`}
                 ref={iframeRef}
-                src={currentItem.url}
+                src={
+                  useProxy
+                    ? `/api/proxy?url=${encodeURIComponent(currentItem.url)}`
+                    : currentItem.url
+                }
                 title={`Review ${currentItem.url}`}
                 style={{
                   width: "100%",
@@ -442,23 +557,116 @@ export default function ReviewMode({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  fontSize: "0.75rem",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  fontSize: "0.78rem",
                   color: "var(--text-tertiary)",
                 }}
               >
-                <span>{t.reviewMode.iframeBlockedNotice}</span>
-                <button
-                  type="button"
-                  onClick={() => window.open(currentItem.url, "_blank", "noopener")}
-                  style={{
-                    color: "var(--accent-primary)",
-                    fontWeight: 600,
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  {t.reviewMode.openInNewTab}
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  {useProxy ? (
+                    <>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          background: "#10b981",
+                        }}
+                      />
+                      <span style={{ color: "var(--text-secondary)" }}>
+                        {t.reviewMode.proxyModeNotice}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <span>{t.reviewMode.directModeNotice}</span>
+                    </>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {!useProxy ? (
+                    <button
+                      type="button"
+                      onClick={handleToggleProxy}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        color: "var(--accent-primary)",
+                        fontWeight: 600,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                      </svg>
+                      {t.reviewMode.tryProxyBypass}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleToggleProxy}
+                      style={{
+                        color: "var(--text-tertiary)",
+                        fontWeight: 500,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      {t.reviewMode.backToDirect}
+                    </button>
+                  )}
+                  <span style={{ color: "var(--border-color)" }}>•</span>
+                  <button
+                    type="button"
+                    onClick={handleOpenPopupStudio}
+                    title={t.reviewMode.popupStudioDesc}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      color: "var(--text-secondary)",
+                      fontWeight: 600,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                    {t.reviewMode.popupStudio}
+                  </button>
+                  <span style={{ color: "var(--border-color)" }}>•</span>
+                  <button
+                    type="button"
+                    onClick={() => window.open(currentItem.url, "_blank", "noopener,noreferrer")}
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontWeight: 600,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t.reviewMode.openInNewTab} ↗
+                  </button>
+                </div>
               </div>
             </div>
           </div>
