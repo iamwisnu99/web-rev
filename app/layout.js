@@ -33,6 +33,10 @@ export const metadata = {
   generator: "Next.js",
   keywords: [
     "WebRev",
+    "Web Rev",
+    "Review Website",
+    "Web Review",
+    "WebReview",
     "live review website",
     "review website live streaming",
     "speed insight",
