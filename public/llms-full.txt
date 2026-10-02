@@ -1,0 +1,119 @@
+# WebRev — Full Knowledge Base & Technical Documentation
+
+> Complete system reference, architecture overview, API specifications, and database schema for AI Agents, LLMs, and Agentic Browsers.
+
+WebRev is a specialized software-as-a-service (SaaS) tool built for live stream hosts, developers, and UI/UX designers who conduct live website reviews on streaming platforms such as YouTube Live, Twitch, TikTok Live, and Discord.
+
+---
+
+## 1. System Overview & Core Capabilities
+
+### 1.1 The Live Review Challenge
+Live stream website reviews often suffer from chaotic audience submissions via stream chat, lost links, inability to track reviewed versus pending websites, and lack of real-time performance metrics. WebRev resolves this through a unified workspace:
+1. **Interactive Host Dashboard**: Manage a reorderable queue of website submissions with drag-and-drop support, status tracking (Pending, In Progress, Completed), and time badges.
+2. **Supabase Real-Time Queue & UID Authentication**: Hosts generate a unique shareable URL (`/room/@HostName?id={UUID}`). When audience members submit URLs, submissions instantly trigger Supabase Realtime broadcast and appear on the host's screen with audio-visual notifications.
+3. **Google PageSpeed Insights V5 API Integration**: Host can analyze any submitted website in 1 click, fetching Lighthouse performance scores, Core Web Vitals (LCP, FID/INP, CLS, FCP), field data, and actionable diagnostics for both Mobile and Desktop viewports.
+4. **Interactive Review Workspace**: Split-screen live preview with device emulation (Desktop, Tablet, Mobile) and responsive viewport switching.
+5. **Standardized Evaluation Checklist**: 5 evaluation pillars (UI/UX, Typography, Color & Contrast, Mobile Responsiveness, Performance & SEO) to provide clear, actionable feedback to viewers.
+6. **Session Security & Data Hygiene**: Clean local storage management and automatic deletion of Supabase live room sessions and submissions when the host logs out.
+
+---
+
+## 2. System Architecture
+
+```
+[ Audience / Viewers ] ---> [ /room/@Host?id=UID ]
+                                     |
+                                     v (POST submission)
+[ Supabase PostgreSQL DB ] <--- [ Realtime Channel ]
+           |                                  |
+           +----------------------------------+
+                                     |
+                                     v (Instant Broadcast)
+[ Host Live Screen / Dashboard ] <--- [ WebRev Client App ]
+           |
+           +---> [ /api/pagespeed ] ---> [ Google PageSpeed API v5 ]
+```
+
+### 2.1 Technology Stack
+- **Frontend Framework**: Next.js 15 (App Router), React 19.
+- **Styling**: Vanilla CSS with tailored HSL variables, fluid glassmorphism, responsive mobile-first layouts, and accessible color contrasts.
+- **Real-Time Database**: Supabase PostgreSQL with Row Level Security (RLS) and Realtime replication publications.
+- **Performance Engine**: Google PageSpeed Insights REST API v5.
+- **Localization**: Bilingual support (Indonesian `id-ID` as primary, English `en-US` as secondary).
+
+---
+
+## 3. Database Schema & Data Models
+
+### 3.1 `public.rooms` Table
+Stores live room sessions created by hosts:
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`): Unique identifier for the room.
+- `host_name` (TEXT, NOT NULL): The host's display name or handle (e.g. "Wisnu").
+- `room_slug` (TEXT, NOT NULL): URL slug identifier (e.g. "@Wisnu").
+- `is_active` (BOOLEAN, Default: `TRUE`): Indicates whether the live session is active.
+- `allow_submissions` (BOOLEAN, Default: `TRUE`): Controls whether the queue is open or temporarily paused.
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`): Creation timestamp.
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`): Last update timestamp.
+
+### 3.2 `public.queue_submissions` Table
+Stores audience submissions for active rooms:
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`): Unique submission ID.
+- `room_id` (UUID, Foreign Key referencing `rooms.id` ON DELETE CASCADE): Parent room UID.
+- `submitter_name` (TEXT, NOT NULL): Name or social handle of the viewer submitting the link.
+- `url` (TEXT, NOT NULL): The website URL to be reviewed.
+- `note` (TEXT, Default: `''`): Optional notes or specific requests for the host.
+- `status` (TEXT, Default: `'pending'`): Submission status (`pending`, `in-progress`, `reviewed`).
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`): Timestamp of submission.
+
+### 3.3 Cascading Deletion & Privacy Policy
+When a host logs out or ends a live session:
+- Deleting the room row in `public.rooms` automatically triggers `ON DELETE CASCADE`, removing all corresponding records in `public.queue_submissions`.
+- Client-side storage (`webrev_data`, `webrev_user`, `webrev_active_room`, `sessionStorage`, cookies) is wiped.
+
+---
+
+## 4. API Endpoints
+
+### 4.1 PageSpeed Insights API
+- **Endpoint**: `/api/pagespeed`
+- **Method**: `GET`
+- **Query Parameters**:
+  - `url` (string, required): The target website URL (e.g., `https://example.com`).
+  - `strategy` (string, optional): Analysis strategy, either `mobile` (default) or `desktop`.
+- **Response Format**: JSON object containing:
+  - `scores`: Performance, Accessibility, Best Practices, SEO (0 to 100).
+  - `metrics`: Largest Contentful Paint (LCP), First Contentful Paint (FCP), Cumulative Layout Shift (CLS), Total Blocking Time (TBT), Speed Index (SI).
+  - `diagnostics`: List of performance opportunities, render-blocking resources, and critical issues.
+  - `screenshot`: Final visual screenshot thumbnail from Lighthouse.
+
+---
+
+## 5. User Workflows
+
+### 5.1 Host Workflow
+1. **Entry**: Host enters their name on the landing page and opens the dashboard.
+2. **Room Activation**: Host clicks "Live Room" in dashboard controls. A unique UID is generated and stored in Supabase.
+3. **Link Sharing**: Host copies `https://webrev.primadev.id/room/@HostName?id={UID}` and pastes it into live chat / bio.
+4. **Queue Influx**: Viewers submit URLs; new entries appear automatically at the top or bottom of the queue with submitter badges.
+5. **Review Session**: Host can click "Review" to enter split-screen review mode, or "Test Speed" to run PageSpeed audits.
+6. **Submission Control**: Host can pause incoming submissions when queue is long, then resume at will.
+7. **Session Termination**: Ending the room or logging out triggers a full data wipe from both Supabase and Chrome storage.
+
+### 5.2 Audience / Viewer Workflow
+1. **Access**: Viewer clicks the shared link: `/room/@HostName?id={UID}`.
+2. **Link Validation**: If the link is invalid, malformed, or references an inactive host, the viewer receives a witty, helpful diagnostic page explaining the error with modern radar SVG graphics.
+3. **Submission**: Viewer fills in their name/handle, the target website URL, and optional review notes.
+4. **Confirmation**: Instant feedback confirms the site has arrived on the host's screen, and advises the viewer to watch the live stream for their review turn.
+
+---
+
+## 6. SEO & AI Agent Compatibility
+
+- **Canonical URL**: `https://webrev.primadev.id`
+- **Sitemap**: `https://webrev.primadev.id/sitemap.xml`
+- **Robots Policy**: `https://webrev.primadev.id/robots.txt`
+- **Machine Discovery**:
+  - `https://webrev.primadev.id/llms.txt`: Compact summary for LLMs and quick search indexing.
+  - `https://webrev.primadev.id/llms-full.txt`: Full technical documentation (this file).
+- **Structured Data**: Google JSON-LD schema graph implementing `WebSite`, `WebApplication`, `Organization`, and `FAQPage`.

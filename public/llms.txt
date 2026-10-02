@@ -1,0 +1,29 @@
+# WebRev
+
+> WebRev is an all-in-one assistant platform for live stream hosts and developers to manage live website reviews, interactive audience URL queues, Google PageSpeed Insights V5 performance auditing, and professional UI/UX evaluation checklists.
+
+WebRev bridges content creators and their live stream audience across platforms (YouTube, Twitch, TikTok Live, Discord, etc.), allowing viewers to submit their portfolios and websites in real-time. The host receives tools for Core Web Vitals diagnostics, split-screen live preview, responsive device emulation, and automated checklist evaluations.
+
+## Core Capabilities
+
+- [Live Room & Audience Queue](https://webrev.primadev.id/room): Real-time audience submission portal powered by Supabase with unique UID room authentication and auto-queuing.
+- [Google PageSpeed Insights V5 Audit](https://webrev.primadev.id): Full performance analysis including Lighthouse scores, Core Web Vitals (LCP, FID, CLS, FCP), and diagnostics for mobile and desktop.
+- [Interactive Review Workspace](https://webrev.primadev.id): Split-screen live preview with device frame emulation (Desktop, Tablet, Mobile), zoom controls, and quick navigation.
+- [Evaluation Checklist](https://webrev.primadev.id): Structured review criteria covering UI/UX, Typography, Color Harmony, Responsiveness, Accessibility (a11y), and SEO.
+- [Bilingual Architecture](https://webrev.primadev.id): Native Indonesian and English localization support.
+
+## Key Links & Navigation
+
+- [WebRev Home & Dashboard](https://webrev.primadev.id): Main interactive dashboard for managing review queue and launching live reviews.
+- [Audience Submission Portal](https://webrev.primadev.id/room): Viewer submission interface formatted as `https://webrev.primadev.id/room/@Host?id=UID`.
+- [Terms & Conditions](https://webrev.primadev.id/legal): Terms of service for host streamers and viewers.
+- [Privacy Policy](https://webrev.primadev.id/legal): Account storage, data minimization, and privacy guidelines.
+- [Disclaimer](https://webrev.primadev.id/legal): Legal disclaimer regarding third-party websites reviewed during live streaming.
+- [Full LLM Documentation](https://webrev.primadev.id/llms-full.txt): Complete technical specification, schema, and API documentation for LLMs and Agentic Browsers.
+
+## Technical Stack & Specifications
+
+- **Framework**: Next.js 15 (App Router), React 19, Vanilla CSS Design System.
+- **Backend / Realtime**: Supabase Database with Realtime websocket replication channel for instant queue synchronization.
+- **Audit Engine**: Google PageSpeed Insights API v5 (Lighthouse Core Web Vitals).
+- **Security & Data Retention**: Zero persistent tracker cookies, client-side storage cleanup, and atomic host room purge on logout.
