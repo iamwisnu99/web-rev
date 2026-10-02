@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+// Next.js Route Segment Config for Vercel Serverless Function
+export const dynamic = "force-dynamic";
+export const maxDuration = 30; // 30 seconds for Google PageSpeed / Lighthouse API
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   let targetUrl = searchParams.get("url");

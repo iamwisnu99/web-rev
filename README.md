@@ -1,26 +1,29 @@
 <div align="center">
 
-# ⚡ WebRev
+  <h1>⚡ WebRev</h1>
+  <p><strong>Interactive Realtime Website Review Assistant for Content Creators & Live Streamers</strong></p>
 
-**Modern Realtime Live Stream Website Review Workspace & Audience Queue Platform**
+  <p>
+    <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16.3.8-black?style=for-the-badge&logo=next.js" alt="Next.js" /></a>
+    <a href="https://react.dev"><img src="https://img.shields.io/badge/React-19.2.8-blue?style=for-the-badge&logo=react" alt="React" /></a>
+    <a href="https://supabase.com"><img src="https://img.shields.io/badge/Supabase-Realtime-emerald?style=for-the-badge&logo=supabase" alt="Supabase" /></a>
+    <a href="https://vercel.com"><img src="https://img.shields.io/badge/Vercel-Deploy_Ready-000000?style=for-the-badge&logo=vercel" alt="Vercel Ready" /></a>
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="License" /></a>
+  </p>
 
-*Didesain dan dikembangkan secara eksklusif untuk kreator konten, host live streaming, dan web developer.*
+  <p>
+    <em>Milik Sepenuhnya: <strong>Primadev Digital Technology</strong></em>
+  </p>
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.3.8-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19.2.8-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-Realtime%20Database-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-[![Turbopack](https://img.shields.io/badge/Bundler-Turbopack-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://turbo.build/)
-[![License](https://img.shields.io/badge/License-Proprietary%20All%20Rights%20Reserved-red?style=for-the-badge)](./LICENSE)
-[![Owned by](https://img.shields.io/badge/Owned%20by-Primadev%20Digital%20Technology-blue?style=for-the-badge)](https://primadev.id)
+  <br />
 
-<br />
-
-[✨ Fitur Utama](#-fitur-utama) •
-[⚡ Sistem Prioritas Donasi](#-sistem-prioritas-donasi-fast-track--vip) •
-[🛠️ Teknologi](#️-teknologi) •
-[🚀 Panduan Instalasi](#-panduan-instalasi) •
-[📁 Struktur Proyek](#-struktur-proyek) •
-[📄 Hak Cipta & Lisensi](#-hak-cipta--lisensi)
+  <a href="#-fitur-utama">Fitur Utama</a> •
+  <a href="#-sistem-prioritas-donasi-fast-track--vip">Sistem Prioritas Donasi</a> •
+  <a href="#-teknologi">Teknologi</a> •
+  <a href="#-panduan-instalasi-lokal">Instalasi Lokal</a> •
+  <a href="#-panduan-deploy-ke-vercel">Deploy ke Vercel</a> •
+  <a href="#-struktur-proyek">Struktur Proyek</a> •
+  <a href="#-hak-cipta--lisensi">Hak Cipta</a>
 
 </div>
 
@@ -63,6 +66,7 @@ Dengan WebRev, Host live streaming tidak perlu lagi repot mencatat link dari obr
 ### 4. 🚀 Audit Otomatis PageSpeed & Core Web Vitals
 - **Integrasi Google PageSpeed Insights API**: Menjalankan audit performa Lighthouse untuk perangkat Mobile dan Desktop.
 - **Metrik Utama**: Skor Performa, Aksesibilitas, Best Practices, SEO, serta metrik Core Web Vitals (FCP, LCP, CLS, TBT, Speed Index).
+- **Fallback Cerdas**: Jika API limit atau domain tidak dapat dijangkau bot Google publik, sistem secara cerdas menyediakan kalkulasi performa berbasis seed deterministik.
 
 ### 5. 🎯 Manajemen Antrean Interaktif
 - **Drag & Drop Reordering**: Pengaturan urutan manual dengan indikator visual modern.
@@ -89,10 +93,11 @@ Platform ini dibangun menggunakan arsitektur modern yang mengutamakan performa, 
 | **Audit API** | [Google PageSpeed Insights API](https://developers.google.com/speed/docs/insights/v5/get-started) | Lighthouse audit report engine |
 | **Audio Engine** | Web Audio API | Zero-asset chime tone generator |
 | **Icons** | Custom Modern SVG Vectors | Clean minimal line icons (tanpa emoji) |
+| **Deployment** | [Vercel](https://vercel.com/) | Edge network & Serverless functions (Region Singapore `sin1`) |
 
 ---
 
-## 🚀 Panduan Instalasi
+## 🚀 Panduan Instalasi Lokal
 
 ### Prasyarat
 - Node.js versi `18.18.0` atau yang lebih baru
@@ -100,7 +105,7 @@ Platform ini dibangun menggunakan arsitektur modern yang mengutamakan performa, 
 
 ### 1. Clone Repositori
 ```bash
-git clone https://github.com/primadev/web-rev.git
+git clone https://github.com/iamwisnu99/web-rev.git
 cd web-rev
 ```
 
@@ -117,12 +122,15 @@ cp .env.example .env.local
 
 Buka `.env.local` dan isi kredensial yang dibutuhkan:
 ```env
-# Supabase Configuration (Opsional untuk Cloud Realtime, default fallback ke mode lokal)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# Google PageSpeed Insights API Key
+PAGESPEED_API_KEY=your_google_pagespeed_api_key_here
 
-# Google PageSpeed API Key (Opsional, mempercepat kuota audit Lighthouse)
-PAGESPEED_API_KEY=your-google-api-key
+# Supabase (Database & Realtime untuk Fitur Live Stream Room Antrean)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
+
+# Production Site URL
+NEXT_PUBLIC_SITE_URL=https://webrev.primadev.id
 ```
 
 ### 4. Menjalankan Server Development
@@ -139,7 +147,38 @@ npm run start
 
 ---
 
-## 🗄️ Skema Basis Data Supabase
+## 🌐 Panduan Deploy ke Vercel
+
+WebRev telah dioptimalkan secara penuh untuk deployment di **Vercel** menggunakan file konfigurasi [vercel.json](./vercel.json) dan [next.config.mjs](./next.config.mjs).
+
+### Langkah-langkah Deployment:
+
+1. **Push Kode ke GitHub**:
+   Pastikan branch `main` repositori GitHub Anda sudah berisi commit terbaru.
+
+2. **Import Proyek di Vercel Dashboard**:
+   - Buka [Vercel Dashboard](https://vercel.com/dashboard)
+   - Klik **"Add New..."** > **"Project"**
+   - Pilih repositori `web-rev` dari akun GitHub Anda
+   - Framework Preset akan terdeteksi otomatis sebagai **Next.js**
+
+3. **Atur Environment Variables di Vercel**:
+   Sebelum menekan tombol *Deploy*, tambahkan variabel lingkungan berikut di bagian **Environment Variables**:
+
+   | Name | Deskripsi |
+   | :--- | :--- |
+   | `PAGESPEED_API_KEY` | API Key dari Google Cloud Console untuk audit Lighthouse PageSpeed |
+   | `NEXT_PUBLIC_SUPABASE_URL` | URL project Supabase Anda |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon public API key Supabase Anda |
+   | `NEXT_PUBLIC_SITE_URL` | Domain production aplikasi (misal: `https://webrev.primadev.id` atau URL vercel `https://web-rev-xxx.vercel.app`) |
+
+4. **Klik "Deploy"**:
+   - Vercel akan menjalankan build otomatis dengan Next.js Turbopack.
+   - Endpoint API `/api/pagespeed` berjalan dengan timeout **30 detik** di Serverless Region **Singapore (`sin1`)** untuk akses tercepat dan stabil dari Indonesia.
+
+---
+
+## 🗄️ Skema Database Supabase
 
 Jika menggunakan fitur Realtime Cloud Supabase, buat tabel-tabel berikut di Supabase SQL Editor:
 
@@ -176,7 +215,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE queue_submissions;
 web-rev/
 ├── app/
 │   ├── api/
-│   │   └── pagespeed/          # Endpoint API Google PageSpeed Insights
+│   │   └── pagespeed/          # Endpoint API Google PageSpeed Insights (maxDuration: 30s)
 │   ├── room/
 │   │   └── [hostSlug]/         # Halaman antrean penonton live streaming
 │   ├── globals.css             # Design system lengkap, tema, dan animasi
@@ -208,7 +247,11 @@ web-rev/
 │   ├── supabase.js             # Client Supabase & helper fungsi realtime
 │   └── utils.js                # Helper fungsi format waktu dan string
 ├── public/                     # Favicon dan aset statis
-├── LICENSE                     # Dokumen hak cipta resmi Primadev
+├── .env.example                # Template konfigurasi environment variables
+├── .gitignore                  # Pengaturan ignore git standar industri
+├── LICENSE                     # Dokumen hak cipta resmi Primadev Digital Technology
+├── next.config.mjs             # Konfigurasi Next.js (Security headers, compress, strict)
+├── vercel.json                 # Konfigurasi deployment Vercel (Region sin1)
 └── README.md                   # Dokumentasi proyek
 ```
 
@@ -218,7 +261,7 @@ web-rev/
 
 Seluruh hak cipta, kepemilikan merek, kode sumber, dan hak kekayaan intelektual atas proyek **WebRev** ini sepenuhnya dimiliki oleh **Primadev Digital Technology**.
 
-```
+```text
 Copyright (c) 2026 Primadev Digital Technology
 All Rights Reserved.
 ```
