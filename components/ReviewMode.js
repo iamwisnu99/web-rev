@@ -159,18 +159,18 @@ export default function ReviewMode({
       "WebRevLiveStudioPreview",
       `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=yes`
     );
-    if (popup) {
+    if (popup && addToast) {
       addToast(t.reviewMode.popupStudioToast);
     }
   };
 
   const handleToggleProxy = () => {
-    setUseProxy((prev) => {
-      const next = !prev;
-      addToast(next ? t.reviewMode.proxyActivatedToast : t.reviewMode.directActivatedToast);
-      setIframeKey((k) => k + 1);
-      return next;
-    });
+    const nextVal = !useProxy;
+    setUseProxy(nextVal);
+    setIframeKey((k) => k + 1);
+    if (addToast) {
+      addToast(nextVal ? t.reviewMode.proxyActivatedToast : t.reviewMode.directActivatedToast);
+    }
   };
 
   const totalUrls = urls.length;
