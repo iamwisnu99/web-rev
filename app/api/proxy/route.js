@@ -54,7 +54,38 @@ export async function GET(request) {
 
     const contentType = response.headers.get("content-type") || "";
 
-    // If not HTML (e.g., image, pdf, json, js, css), stream as-is with CORS enabled
+    // --- Handle CSS files: rewrite url() references so fonts/images load correctly ---
+    if (contentType.includes("text/css")) {
+      let css = await response.text();
+      // Determine the CSS file's origin for resolving relative URLs
+      const cssOrigin = new URL(response.url || targetUrl).origin;
+      const cssBase = (response.url || targetUrl).replace(/[^/]+$/, '');
+
+      // Rewrite absolute same-origin url() references
+      const escapedCssOrigin = cssOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      css = css.replace(new RegExp(`url\\(\\s*(['"]?)${escapedCssOrigin}(/[^)'"]+)\\1\\s*\\)`, 'gi'), (match, quote, path) => {
+        return `url(${quote}/api/proxy?url=${encodeURIComponent(`${cssOrigin}${path}`)}${quote})`;
+      });
+
+      // Rewrite root-relative url(/path/...) references
+      css = css.replace(/url\(\s*(['"]?)\/((?!\/|data:|api\/proxy)[^)'"]+)\1\s*\)/gi, (match, quote, path) => {
+        return `url(${quote}/api/proxy?url=${encodeURIComponent(`${cssOrigin}/${path}`)}${quote})`;
+      });
+
+      // Rewrite truly relative url(path/...) references (no leading /)
+      css = css.replace(/url\(\s*(['"]?)((?!\/|data:|https?:|api\/proxy|#)[^)'"]+)\1\s*\)/gi, (match, quote, path) => {
+        return `url(${quote}/api/proxy?url=${encodeURIComponent(`${cssBase}${path}`)}${quote})`;
+      });
+
+      const headers = new Headers();
+      headers.set("Content-Type", "text/css; charset=utf-8");
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      headers.set("Cache-Control", "public, max-age=3600");
+      return new NextResponse(css, { status: 200, headers });
+    }
+
+    // --- Handle non-HTML, non-CSS (images, fonts, JS, etc.) — stream as-is with CORS ---
     if (!contentType.includes("text/html")) {
       const blob = await response.blob();
       const headers = new Headers();
@@ -68,12 +99,13 @@ export async function GET(request) {
       });
     }
 
+    // --- Handle HTML pages ---
     let html = await response.text();
     const finalUrl = response.url || targetUrl;
     const finalOrigin = new URL(finalUrl).origin;
     const finalBase = finalUrl.endsWith("/") ? finalUrl : finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
 
-    // 1. Invalidate Frame-Busting scripts (scripts that try `if (top !== self) top.location = self.location`)
+    // 1. Invalidate Frame-Busting scripts
     const antiFrameBustScript = `
       <script>
         (function() {
@@ -85,21 +117,57 @@ export async function GET(request) {
       </script>
     `;
 
-    // 2. Rewrite root-relative scripts and stylesheets to go through proxy with CORS
-    html = html.replace(/(src|href)=(["'])\/(assets\/[^"']+)\2/gi, (match, attr, quote, path) => {
+    // 2. Strip CSP meta tags that block framing
+    html = html.replace(/<meta[^>]*http-equiv=['"]Content-Security-Policy['"][^>]*>/gi, '');
+    html = html.replace(/<meta[^>]*content=['"][^'"]*frame-ancestors[^'"]*['"][^>]*>/gi, '');
+
+    // 3. Remove any existing <base> tags (we don't want them overriding our proxy URLs)
+    html = html.replace(/<base[^>]*>/gi, '');
+
+    // 4. Strip "crossorigin" attributes from script/link tags
+    //    These force CORS mode which is unnecessary when loading through our same-origin proxy
+    html = html.replace(/(<(?:script|link)[^>]*?)\s+crossorigin(?:=['"]\w*['"])?/gi, '$1');
+
+    // 5. Rewrite protocol-relative URLs (//cdn.example.com/...) through our proxy
+    html = html.replace(/(src|href)=(['"])\/\/([^"']+)\2/gi, (match, attr, quote, path) => {
+      return `${attr}=${quote}/api/proxy?url=${encodeURIComponent(`https://${path}`)}${quote}`;
+    });
+
+    // 6. Rewrite absolute URLs pointing to the same origin through our proxy
+    //    Must be done BEFORE root-relative rewrite to avoid double-processing
+    const escapedOrigin = finalOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(new RegExp(`(src|href)=(['"])(${escapedOrigin})(/[^"']*)\\2`, 'gi'), (match, attr, quote, origin, path) => {
+      return `${attr}=${quote}/api/proxy?url=${encodeURIComponent(`${origin}${path}`)}${quote}`;
+    });
+
+    // 7. Rewrite all root-relative URLs (/path/...) to go through our proxy
+    html = html.replace(/(src|href)=(['"])\/((?!\/|api\/proxy|data:|mailto:|tel:|javascript:|#)[^"']*)\2/gi, (match, attr, quote, path) => {
       return `${attr}=${quote}/api/proxy?url=${encodeURIComponent(`${finalOrigin}/${path}`)}${quote}`;
     });
 
-    // 3. Inject <base> tag so other relative assets (CSS images, fonts) resolve to target site domain
-    const baseTag = `<base href="${finalBase}" target="_blank">`;
+    // 8. Rewrite truly relative URLs in src/href (no leading /) — like "assets/file.js"
+    //    These need the base path of the page to resolve correctly
+    html = html.replace(/(src|href)=(['"])((?!\/|https?:|data:|mailto:|tel:|javascript:|#|api\/proxy)[^"']+)\2/gi, (match, attr, quote, path) => {
+      // Skip anchors, already absolute, or fragment-only
+      if (path.startsWith('#') || path.startsWith('//')) return match;
+      return `${attr}=${quote}/api/proxy?url=${encodeURIComponent(`${finalBase}${path}`)}${quote}`;
+    });
+
+    // 9. Rewrite url() references in inline styles
+    html = html.replace(/url\(\s*(['"]?)\/((?!\/|data:|api\/proxy)[^)'"]+)\1\s*\)/gi, (match, quote, path) => {
+      return `url(${quote}/api/proxy?url=${encodeURIComponent(`${finalOrigin}/${path}`)}${quote})`;
+    });
+
+    // 10. Inject anti-frame-bust script and meta referrer (but NO <base> tag)
+    const metaReferrer = `<meta name="referrer" content="no-referrer">`;
 
     if (/<head[^>]*>/i.test(html)) {
-      html = html.replace(/<head[^>]*>/i, (match) => `${match}\n${baseTag}\n${antiFrameBustScript}`);
+      html = html.replace(/<head[^>]*>/i, (match) => `${match}\n${metaReferrer}\n${antiFrameBustScript}`);
     } else {
-      html = `<head>${baseTag}${antiFrameBustScript}</head>${html}`;
+      html = `<head>${metaReferrer}${antiFrameBustScript}</head>${html}`;
     }
 
-    // Response headers: Stripping X-Frame-Options and Content-Security-Policy that block framing
+    // Response headers: clean, no X-Frame-Options or CSP
     const responseHeaders = new Headers();
     responseHeaders.set("Content-Type", "text/html; charset=utf-8");
     responseHeaders.set("Cache-Control", "private, no-cache, no-store, must-revalidate");

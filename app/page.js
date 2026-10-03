@@ -6,6 +6,7 @@ import Dashboard from "@/components/Dashboard";
 import LegalPage from "@/components/LegalPage";
 import NameModal from "@/components/NameModal";
 import LogoutConfirmModal from "@/components/LogoutConfirmModal";
+import PrivacyDisclaimerModal from "@/components/PrivacyDisclaimerModal";
 import MobileBlockScreen from "@/components/MobileBlockScreen";
 import ToastContainer from "@/components/ToastContainer";
 import { clearChromeAccountStorage } from "@/lib/utils";
@@ -20,6 +21,7 @@ export default function Home() {
   const [legalTab, setLegalTab] = useState("terms"); // 'terms' | 'privacy' | 'disclaimer'
   const [previousPage, setPreviousPage] = useState("landing");
   const [toasts, setToasts] = useState([]);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Language & Theme state
   const [lang, setLang] = useState("id");
@@ -53,6 +55,15 @@ export default function Home() {
         if (data.user) {
           setCurrentUser(data.user);
           setCurrentPage("dashboard");
+          // Show privacy disclaimer once per session for returning users
+          try {
+            if (!sessionStorage.getItem("webrev_privacy_shown")) {
+              setTimeout(() => {
+                setShowPrivacyModal(true);
+                sessionStorage.setItem("webrev_privacy_shown", "1");
+              }, 800);
+            }
+          } catch (e) {}
         }
       }
     } catch (e) {
@@ -107,6 +118,16 @@ export default function Home() {
     addToast(
       lang === "en" ? `Welcome, ${trimmed}!` : `Selamat datang, ${trimmed}!`
     );
+
+    // Show privacy disclaimer once per session
+    try {
+      if (!sessionStorage.getItem("webrev_privacy_shown")) {
+        setTimeout(() => {
+          setShowPrivacyModal(true);
+          sessionStorage.setItem("webrev_privacy_shown", "1");
+        }, 600);
+      }
+    } catch (e) {}
   };
 
   const handleLogout = () => {
@@ -273,6 +294,12 @@ export default function Home() {
           lang={lang}
         />
       )}
+
+      <PrivacyDisclaimerModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        lang={lang}
+      />
 
       <ToastContainer toasts={toasts} />
     </>

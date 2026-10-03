@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { translations } from "@/lib/i18n";
 
 export default function LogoutConfirmModal({
@@ -17,17 +17,11 @@ export default function LogoutConfirmModal({
       lang === "en"
         ? "Are you sure you want to log out of your host account?"
         : "Apakah Anda yakin ingin keluar dari akun host?",
-    storageNote:
-      lang === "en"
-        ? "Chrome storage and active Supabase live room sessions & UID will be completely wiped."
-        : "Penyimpanan Chrome serta sesi room live & UID di Supabase akan dihapus dan dibersihkan.",
-    storageBadge: lang === "en" ? "Full Data Wipe" : "Pembersihan Data Penuh",
-    accountLabel: lang === "en" ? "Active Host Account" : "Akun Host Aktif",
     btnCancel: lang === "en" ? "Cancel" : "Batal",
     btnConfirm: lang === "en" ? "Yes, Log Out" : "Ya, Keluar Akun",
   };
 
-  const handleConfirmClick = async () => {
+  const handleConfirmClick = useCallback(async () => {
     if (isProcessing) return;
     setIsProcessing(true);
     try {
@@ -35,7 +29,7 @@ export default function LogoutConfirmModal({
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [isProcessing, onConfirm]);
 
   // Prevent background scroll
   useEffect(() => {
@@ -56,7 +50,7 @@ export default function LogoutConfirmModal({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose, isProcessing]);
+  }, [onClose, isProcessing, handleConfirmClick]);
 
   return (
     <div
@@ -159,112 +153,6 @@ export default function LogoutConfirmModal({
             >
               {logoutText.desc}
             </p>
-
-            {/* Account Card & Chrome Storage Wipe Notice */}
-            <div
-              style={{
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                padding: "14px 16px",
-                marginBottom: "20px",
-                boxShadow: "var(--shadow-xs)",
-              }}
-            >
-              {/* User Account Info */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                  paddingBottom: "12px",
-                  borderBottom: "1px solid var(--border-color)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-                  <div
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "50%",
-                      background: "var(--accent-primary)",
-                      color: "#ffffff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 700,
-                      fontSize: "0.88rem",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {currentUser ? currentUser.charAt(0).toUpperCase() : "H"}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.88rem",
-                        color: "var(--text-primary)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {currentUser || "Host Live"}
-                    </div>
-                    <div style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>
-                      {logoutText.accountLabel}
-                    </div>
-                  </div>
-                </div>
-
-                <span
-                  style={{
-                    fontSize: "0.7rem",
-                    fontWeight: 600,
-                    padding: "3px 8px",
-                    borderRadius: "9999px",
-                    background: "rgba(239, 68, 68, 0.1)",
-                    color: "var(--color-danger)",
-                    border: "1px solid rgba(239, 68, 68, 0.2)",
-                    flexShrink: 0,
-                  }}
-                >
-                  {logoutText.storageBadge}
-                </span>
-              </div>
-
-              {/* Storage Cleanup Detail */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "8px",
-                  marginTop: "10px",
-                  fontSize: "0.78rem",
-                  color: "var(--text-secondary)",
-                  lineHeight: "1.45",
-                }}
-              >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  style={{ color: "var(--color-warning)", flexShrink: 0, marginTop: "2px" }}
-                >
-                  <path
-                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span>{logoutText.storageNote}</span>
-              </div>
-            </div>
 
             {/* Action Buttons */}
             <div

@@ -427,6 +427,11 @@ input, select, textarea {
   to { opacity: 1; }
 }
 
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 /* Mobile Dropdown Menu Card */
 .mobile-dropdown-menu {
   position: absolute;

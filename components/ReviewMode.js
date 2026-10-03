@@ -22,10 +22,12 @@ export default function ReviewMode({
   const [deviceMode, setDeviceMode] = useState("desktop"); // 'desktop' | 'tablet' | 'mobile'
   const [iframeKey, setIframeKey] = useState(0);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [useProxy, setUseProxy] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
+  const [useProxy, setUseProxy] = useState(true);
   const [currentNote, setCurrentNote] = useState("");
 
   const iframeRef = useRef(null);
+  const iframeTimerRef = useRef(null);
 
   const t = translations[lang] || translations.id;
   const checklistData = getChecklist(lang);
@@ -62,9 +64,59 @@ export default function ReviewMode({
     if (currentItem) {
       setCurrentNote(currentItem.note || "");
       setIframeLoaded(false);
+      setIframeError(false);
       setIframeKey((k) => k + 1);
     }
   }, [currentId]);
+
+  // Auto-detect iframe load failure
+  // Many sites block iframes via X-Frame-Options / CSP. The iframe's onLoad fires
+  // even when the browser shows "refused to connect", but we can't read its
+  // contentDocument due to cross-origin restrictions. We use a timeout-based
+  // heuristic: if the iframe hasn't signaled a successful paint within a few
+  // seconds, we assume it's blocked and show the fallback overlay.
+  useEffect(() => {
+    if (iframeTimerRef.current) {
+      clearTimeout(iframeTimerRef.current);
+    }
+    if (!useProxy && !iframeError) {
+      iframeTimerRef.current = setTimeout(() => {
+        if (!iframeLoaded) {
+          // Still no load event — probably blocked
+          setIframeError(true);
+        } else {
+          // onLoad fired, but let's try to detect cross-origin error page
+          try {
+            const iframe = iframeRef.current;
+            if (iframe) {
+              // If we can access contentDocument and it's essentially empty or
+              // has an error, the browser is showing its own error page
+              const doc = iframe.contentDocument;
+              if (doc && doc.body) {
+                const text = doc.body.innerText || "";
+                if (
+                  text.includes("refused to connect") ||
+                  text.includes("took too long") ||
+                  text.includes("can't be reached") ||
+                  text.includes("is not allowed")
+                ) {
+                  setIframeError(true);
+                }
+              }
+            }
+          } catch (e) {
+            // Cross-origin — that's expected for normal loads
+            // If onLoad fired AND it's cross-origin, the site probably loaded fine
+          }
+        }
+      }, 5000);
+    }
+    return () => {
+      if (iframeTimerRef.current) {
+        clearTimeout(iframeTimerRef.current);
+      }
+    };
+  }, [iframeKey, useProxy, iframeLoaded, iframeError]);
 
   // Load checklist progress from localStorage
   useEffect(() => {
@@ -167,9 +219,21 @@ export default function ReviewMode({
   const handleToggleProxy = () => {
     const nextVal = !useProxy;
     setUseProxy(nextVal);
+    setIframeError(false);
+    setIframeLoaded(false);
     setIframeKey((k) => k + 1);
     if (addToast) {
       addToast(nextVal ? t.reviewMode.proxyActivatedToast : t.reviewMode.directActivatedToast);
+    }
+  };
+
+  const handleAutoSwitchToProxy = () => {
+    setUseProxy(true);
+    setIframeError(false);
+    setIframeLoaded(false);
+    setIframeKey((k) => k + 1);
+    if (addToast) {
+      addToast(t.reviewMode.proxyActivatedToast);
     }
   };
 
@@ -351,53 +415,9 @@ export default function ReviewMode({
               <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
                 {currentItem.url}
               </span>
-              {useProxy && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    padding: "2px 8px",
-                    borderRadius: "999px",
-                    background: "rgba(16, 185, 129, 0.15)",
-                    color: "#10b981",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    border: "1px solid rgba(16, 185, 129, 0.3)",
-                  }}
-                >
-                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }} />
-                  {t.reviewMode.proxyModeActive}
-                </span>
-              )}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              {/* Bypass Proxy Toggle Button */}
-              <button
-                type="button"
-                onClick={handleToggleProxy}
-                title={useProxy ? t.reviewMode.backToDirect : t.reviewMode.tryProxyBypass}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  background: useProxy ? "rgba(16, 185, 129, 0.15)" : "var(--bg-tertiary)",
-                  color: useProxy ? "#10b981" : "var(--text-secondary)",
-                  border: useProxy ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid var(--border-color)",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                </svg>
-                <span>{useProxy ? t.reviewMode.proxyModeActive : t.reviewMode.tryProxyBypass}</span>
-              </button>
 
               {/* Pop-up Studio Button */}
               <button
@@ -536,17 +556,233 @@ export default function ReviewMode({
                 ref={iframeRef}
                 src={
                   useProxy
-                    ? `/api/proxy?url=${encodeURIComponent(currentItem.url)}`
+                    ? (() => {
+                        try {
+                          const u = new URL(currentItem.url);
+                          return `/api/proxy-site/${u.host}${u.pathname}${u.search}`;
+                        } catch {
+                          return `/api/proxy-site/${currentItem.url}`;
+                        }
+                      })()
                     : currentItem.url
                 }
                 title={`Review ${currentItem.url}`}
+                allow={[
+                  "accelerometer",
+                  "ambient-light-sensor",
+                  "autoplay",
+                  "battery",
+                  "camera",
+                  "display-capture",
+                  "document-domain",
+                  "encrypted-media",
+                  "fullscreen",
+                  "gamepad",
+                  "geolocation",
+                  "gyroscope",
+                  "hid",
+                  "idle-detection",
+                  "local-fonts",
+                  "magnetometer",
+                  "microphone",
+                  "midi",
+                  "payment",
+                  "picture-in-picture",
+                  "publickey-credentials-get",
+                  "screen-wake-lock",
+                  "serial",
+                  "speaker-selection",
+                  "storage-access",
+                  "usb",
+                  "web-share",
+                  "xr-spatial-tracking",
+                ].join("; ")}
+                allowFullScreen
                 style={{
                   width: "100%",
                   height: "100%",
                   border: "none",
                 }}
-                onLoad={() => setIframeLoaded(true)}
+                onLoad={() => {
+                  setIframeLoaded(true);
+                  // Check for error page content if same-origin (proxy)
+                  try {
+                    const doc = iframeRef.current?.contentDocument;
+                    if (doc && doc.body) {
+                      const text = doc.body.innerText || "";
+                      if (
+                        text.includes("refused to connect") ||
+                        text.includes("took too long") ||
+                        text.includes("can't be reached") ||
+                        text.includes("is not allowed")
+                      ) {
+                        setIframeError(true);
+                      }
+                    }
+                  } catch (e) {
+                    // Cross-origin — expected for direct mode
+                  }
+                }}
+                onError={() => {
+                  setIframeError(true);
+                }}
               />
+
+              {/* Auto-detected iframe blocked overlay */}
+              {iframeError && !useProxy && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "rgba(15, 23, 42, 0.92)",
+                    backdropFilter: "blur(8px)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 10,
+                    padding: "24px",
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: "480px",
+                      background: "rgba(30, 41, 59, 0.85)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      borderRadius: "16px",
+                      padding: "32px 28px",
+                      textAlign: "center",
+                      animation: "fadeInScale 0.3s ease-out",
+                    }}
+                  >
+                    {/* Shield icon */}
+                    <div
+                      style={{
+                        width: "56px",
+                        height: "56px",
+                        borderRadius: "50%",
+                        background: "rgba(251, 191, 36, 0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 16px",
+                      }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                    </div>
+
+                    <h3
+                      style={{
+                        fontSize: "1.1rem",
+                        fontWeight: 700,
+                        color: "#f8fafc",
+                        margin: "0 0 8px",
+                      }}
+                    >
+                      {t.reviewMode.iframeBlockedTitle || "Website Diblokir oleh Proteksi Iframe"}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "#94a3b8",
+                        lineHeight: 1.6,
+                        margin: "0 0 24px",
+                      }}
+                    >
+                      {t.reviewMode.iframeBlockedDesc || "Website ini menolak ditampilkan di dalam iframe karena pengaturan keamanan (X-Frame-Options). Gunakan salah satu opsi di bawah untuk tetap bisa melihat website."}
+                    </p>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}
+                    >
+                      {/* Primary: Try proxy */}
+                      <button
+                        type="button"
+                        onClick={handleAutoSwitchToProxy}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                          padding: "12px 20px",
+                          borderRadius: "10px",
+                          background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+                          color: "#fff",
+                          fontSize: "0.88rem",
+                          fontWeight: 700,
+                          border: "none",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          boxShadow: "0 4px 15px rgba(59, 130, 246, 0.3)",
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        {t.reviewMode.iframeBlockedProxyBtn || "Coba Muat via Proxy"}
+                      </button>
+
+                      {/* Secondary: Popup studio */}
+                      <button
+                        type="button"
+                        onClick={handleOpenPopupStudio}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                          padding: "10px 20px",
+                          borderRadius: "10px",
+                          background: "rgba(255, 255, 255, 0.08)",
+                          color: "#e2e8f0",
+                          fontSize: "0.85rem",
+                          fontWeight: 600,
+                          border: "1px solid rgba(255, 255, 255, 0.12)",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                        {t.reviewMode.iframeBlockedPopupBtn || "Buka di Pop-up Studio"}
+                      </button>
+
+                      {/* Tertiary: New tab */}
+                      <button
+                        type="button"
+                        onClick={() => window.open(currentItem.url, "_blank", "noopener,noreferrer")}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          padding: "8px 16px",
+                          background: "transparent",
+                          color: "#64748b",
+                          fontSize: "0.8rem",
+                          fontWeight: 500,
+                          border: "none",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                          textUnderlineOffset: "3px",
+                        }}
+                      >
+                        {t.reviewMode.openInNewTab} ↗
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Helpful fallback banner at bottom of preview */}
               <div
@@ -563,73 +799,7 @@ export default function ReviewMode({
                   color: "var(--text-tertiary)",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  {useProxy ? (
-                    <>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: "8px",
-                          height: "8px",
-                          borderRadius: "50%",
-                          background: "#10b981",
-                        }}
-                      />
-                      <span style={{ color: "var(--text-secondary)" }}>
-                        {t.reviewMode.proxyModeNotice}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="8" x2="12" y2="12" />
-                        <line x1="12" y1="16" x2="12.01" y2="16" />
-                      </svg>
-                      <span>{t.reviewMode.directModeNotice}</span>
-                    </>
-                  )}
-                </div>
-
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  {!useProxy ? (
-                    <button
-                      type="button"
-                      onClick={handleToggleProxy}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        color: "var(--accent-primary)",
-                        fontWeight: 600,
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                      }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                      </svg>
-                      {t.reviewMode.tryProxyBypass}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleToggleProxy}
-                      style={{
-                        color: "var(--text-tertiary)",
-                        fontWeight: 500,
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                      }}
-                    >
-                      {t.reviewMode.backToDirect}
-                    </button>
-                  )}
-                  <span style={{ color: "var(--border-color)" }}>•</span>
                   <button
                     type="button"
                     onClick={handleOpenPopupStudio}
